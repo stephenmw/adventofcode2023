@@ -1,0 +1,36 @@
+use crate::solutions::prelude::*;
+
+pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
+    let data = parse!(input);
+    todo!()
+}
+
+pub fn problem2(_input: &str) -> Result<String, anyhow::Error> {
+    todo!()
+}
+
+mod parser {
+    use super::*;
+    use crate::parser::prelude::*;
+
+    pub fn parse(input: &str) -> IResult<&str, ()> {
+        unimplemented!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const EXAMPLE_INPUT: &str = "";
+
+    #[test]
+    fn problem1_test() {
+        assert_eq!(problem1(EXAMPLE_INPUT).unwrap(), "")
+    }
+
+    #[test]
+    fn problem2_test() {
+        //assert_eq!(problem2(EXAMPLE_INPUT).unwrap(), "")
+    }
+}
