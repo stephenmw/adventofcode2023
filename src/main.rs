@@ -63,9 +63,15 @@ fn run(day: usize, problem: usize, input: Option<String>) -> Result<()> {
 }
 
 fn run_all(parallel: bool) -> Result<()> {
+    let days = {
+        let mut d: Vec<usize> = solutions::SOLUTIONS.keys().copied().collect();
+        d.sort_unstable();
+        d
+    };
+
     let mut times = if parallel {
-        (1..=25)
-            .into_par_iter()
+        days.par_iter()
+            .copied()
             .flat_map(|day| [(day, 1), (day, 2)])
             .map(|(day, problem)| (day, problem, run_problem(day, problem, None)))
             .try_fold_with(Vec::new(), |mut acc, (day, problem, res)| {
@@ -77,7 +83,8 @@ fn run_all(parallel: bool) -> Result<()> {
                 Ok(a)
             })?
     } else {
-        (1..=25)
+        days.iter()
+            .copied()
             .flat_map(|day| [(day, 1), (day, 2)])
             .map(|(day, problem)| (day, problem, run_problem(day, problem, None)))
             .try_fold(Vec::new(), |mut acc, (day, problem, res)| {
