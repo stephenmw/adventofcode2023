@@ -85,6 +85,16 @@ impl Point {
         Direction::iter().filter_map(move |d| p.next(d))
     }
 
+    pub fn iter_adjacent8(&self) -> impl Iterator<Item = Point> {
+        let p = *self;
+        let simple_dir = self.iter_adjacent();
+        let compound_dir = Direction::iter()
+            .flat_map(|d1| std::iter::repeat(d1).zip(Direction::iter()))
+            .filter(|(a, b)| a != b && a.opposite() != *b)
+            .filter_map(move |(a, b)| p.next(a).and_then(|x| x.next(b)));
+        simple_dir.chain(compound_dir)
+    }
+
     pub fn manhattan_distance(&self, other: &Self) -> usize {
         (self.x.abs_diff(other.x)) + (self.y.abs_diff(other.y))
     }
@@ -107,5 +117,14 @@ impl Direction {
             Direction::Right,
         ]
         .into_iter()
+    }
+
+    pub fn opposite(&self) -> Self {
+        match self {
+            Direction::Up => Direction::Down,
+            Direction::Down => Direction::Up,
+            Direction::Left => Direction::Right,
+            Direction::Right => Direction::Left,
+        }
     }
 }
