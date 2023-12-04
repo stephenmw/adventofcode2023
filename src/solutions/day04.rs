@@ -7,8 +7,20 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     Ok(cards.iter().map(|c| c.points()).sum::<usize>().to_string())
 }
 
-pub fn problem2(_input: &str) -> Result<String, anyhow::Error> {
-    todo!()
+pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
+    let cards = parse!(input);
+    let mut card_counts = vec![1; cards.len()];
+
+    for (i, card) in cards.iter().enumerate() {
+        let cnt = card_counts[i];
+        let start = i + 1;
+        let end = start + card.num_matches();
+        for c in card_counts[start..end].iter_mut() {
+            *c += cnt;
+        }
+    }
+
+    Ok(card_counts.iter().sum::<usize>().to_string())
 }
 
 struct ScratchCard {
@@ -18,11 +30,14 @@ struct ScratchCard {
 }
 
 impl ScratchCard {
-    fn points(&self) -> usize {
+    fn num_matches(&self) -> usize {
         let a = AHashSet::from_iter(self.winning_numbers.iter().copied());
         let b = AHashSet::from_iter(self.numbers.iter().copied());
+        a.intersection(&b).count()
+    }
 
-        let count = a.intersection(&b).count();
+    fn points(&self) -> usize {
+        let count = self.num_matches();
         match count {
             0 => 0,
             _ => 1 << (count - 1),
@@ -68,6 +83,6 @@ mod tests {
 
     #[test]
     fn problem2_test() {
-        //assert_eq!(problem2(EXAMPLE_INPUT).unwrap(), "")
+        assert_eq!(problem2(EXAMPLE_INPUT).unwrap(), "30")
     }
 }
