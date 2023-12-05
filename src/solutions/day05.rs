@@ -4,13 +4,13 @@ use std::cmp;
 
 pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let (seeds, maps) = parse!(input);
-
-    let ans = seeds
+    let seed_ranges: Vec<Range> = seeds
         .iter()
-        .map(|&s| maps.iter().fold(s, |acc, m| m.apply(acc)))
-        .min()
-        .unwrap();
-    Ok(ans.to_string())
+        .copied()
+        .map(|s| Range::new(s, s + 1).unwrap())
+        .collect();
+
+    Ok(min_location(seed_ranges, &maps).to_string())
 }
 
 pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
@@ -20,10 +20,12 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
         .map(|xs| Range::new(xs[0], xs[0] + xs[1]).unwrap())
         .collect();
 
-    let mapped_ranges = maps.iter().fold(seed_ranges, |acc, m| m.apply_ranges(acc));
-    let ans = mapped_ranges.iter().map(|r| r.start).min().unwrap();
+    Ok(min_location(seed_ranges, &maps).to_string())
+}
 
-    Ok(ans.to_string())
+fn min_location(seeds: Vec<Range>, maps: &[Map]) -> usize {
+    let mapped_ranges = maps.iter().fold(seeds, |acc, m| m.apply_ranges(acc));
+    mapped_ranges.iter().map(|r| r.start).min().unwrap()
 }
 
 // A range from [start, end)
@@ -40,10 +42,6 @@ impl Range {
         } else {
             None
         }
-    }
-
-    fn len(&self) -> usize {
-        self.end - self.start
     }
 
     fn split(&self, other: &Self) -> (Option<Self>, Option<Self>, Option<Self>) {
@@ -73,18 +71,6 @@ struct MapRange {
 }
 
 impl MapRange {
-    fn contains(&self, v: usize) -> bool {
-        v >= self.src_start && v < (self.src_start + self.len)
-    }
-
-    fn apply(&self, v: usize) -> Option<usize> {
-        if !self.contains(v) {
-            return None;
-        }
-
-        Some(v - self.src_start + self.dst_start)
-    }
-
     // Returns the overlap with the mapping applied and the residual before and
     // after the overlap
     fn apply_range(&self, r: Range) -> Option<(Range, Option<Range>, Option<Range>)> {
@@ -104,14 +90,6 @@ struct Map {
 }
 
 impl Map {
-    fn apply(&self, v: usize) -> usize {
-        self.ranges
-            .iter()
-            .filter_map(|r| r.apply(v))
-            .next()
-            .unwrap_or(v)
-    }
-
     fn apply_ranges(&self, r: Vec<Range>) -> Vec<Range> {
         let mut to_process = r;
         let mut tmp = Vec::new();
