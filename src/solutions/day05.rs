@@ -15,19 +15,13 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
 
 pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
     let (seeds, maps) = parse!(input);
-    let seed_ranges = &seeds
+    let seed_ranges: Vec<Range> = seeds
         .chunks_exact(2)
-        .map(|xs| Range::new(xs[0], xs[0] + xs[1]).unwrap());
-    let ans = seed_ranges
-        .clone()
-        .flat_map(|s| {
-            maps.iter().fold(vec![s], |acc, m| {
-                acc.iter().flat_map(|&a| m.apply_range(a)).collect()
-            })
-        })
-        .map(|r| r.start)
-        .min()
-        .unwrap();
+        .map(|xs| Range::new(xs[0], xs[0] + xs[1]).unwrap())
+        .collect();
+
+    let mapped_ranges = maps.iter().fold(seed_ranges, |acc, m| m.apply_ranges(acc));
+    let ans = mapped_ranges.iter().map(|r| r.start).min().unwrap();
 
     Ok(ans.to_string())
 }
@@ -118,8 +112,8 @@ impl Map {
             .unwrap_or(v)
     }
 
-    fn apply_range(&self, r: Range) -> Vec<Range> {
-        let mut to_process = vec![r];
+    fn apply_ranges(&self, r: Vec<Range>) -> Vec<Range> {
+        let mut to_process = r;
         let mut tmp = Vec::new();
         let mut mapped = Vec::new();
 
