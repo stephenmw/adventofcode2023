@@ -34,6 +34,7 @@ pub fn int<T: FromStr>(input: &str) -> IResult<&str, T> {
     parser(input)
 }
 
+#[allow(dead_code)]
 pub fn complete<I, O, E, P>(parser: P) -> impl FnMut(I) -> IResult<I, O, E>
 where
     I: nom::InputLength + nom::InputTakeAtPosition + Clone,

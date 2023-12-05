@@ -24,6 +24,7 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
 }
 
 struct ScratchCard {
+    #[allow(dead_code)]
     id: usize,
     winning_numbers: Vec<usize>,
     numbers: Vec<usize>,

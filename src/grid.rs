@@ -12,6 +12,7 @@ impl<T> Grid<T> {
         self.cells.get(p.y)?.get(p.x)
     }
 
+    #[allow(dead_code)]
     pub fn get_mut(&mut self, p: Point) -> Option<&mut T> {
         self.cells.get_mut(p.y)?.get_mut(p.x)
     }
@@ -21,6 +22,7 @@ impl<T> Grid<T> {
         (0..y_len).flat_map(move |y| (0..x_len).map(move |x| Point::new(x, y)))
     }
 
+    #[allow(dead_code)]
     pub fn iter_line(&self, start: Point, d: Direction) -> impl Iterator<Item = (Point, &T)> {
         LineIterator {
             g: self,
@@ -93,10 +95,6 @@ impl Point {
             .filter(|(a, b)| a != b && a.opposite() != *b)
             .filter_map(move |(a, b)| p.next(a).and_then(|x| x.next(b)));
         simple_dir.chain(compound_dir)
-    }
-
-    pub fn manhattan_distance(&self, other: &Self) -> usize {
-        (self.x.abs_diff(other.x)) + (self.y.abs_diff(other.y))
     }
 }
 
