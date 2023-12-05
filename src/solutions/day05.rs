@@ -46,12 +46,12 @@ impl Range {
 
     fn split(&self, other: &Self) -> (Option<Self>, Option<Self>, Option<Self>) {
         (
-            Range::new(self.start, other.start),
+            Range::new(self.start, cmp::min(self.end, other.start)),
             Range::new(
                 cmp::max(self.start, other.start),
                 cmp::min(self.end, other.end),
             ),
-            Range::new(other.end, self.end),
+            Range::new(cmp::max(self.start, other.end), self.end),
         )
     }
 
