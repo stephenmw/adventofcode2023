@@ -22,22 +22,25 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
     Ok(race.num_winning_waits().to_string())
 }
 
+#[derive(Clone, Copy, Debug)]
 struct Race {
     time: usize,
     record_distance: usize,
 }
 
 impl Race {
-    fn distance(&self, wait: usize) -> usize {
-        wait * (self.time - wait)
-    }
-
     fn num_winning_waits(&self) -> usize {
-        (0..self.time)
-            //.into_par_iter()
-            .map(|wait| self.distance(wait))
-            .filter(|&d| d > self.record_distance)
-            .count()
+        // solution from https://www.wolframalpha.com/input?i=solve+for+w+in+w+*+%28t+-+w%29+%3D+d
+        let t = self.time as f64;
+        let d = self.record_distance as f64;
+        let shared = (t * t - 4.0 * d).sqrt();
+        let low_root = 0.5 * (t - shared);
+        let high_root = 0.5 * (t + shared);
+
+        let low = low_root.ceil() as usize + if low_root.fract() == 0.0 { 1 } else { 0 };
+        let high = high_root.floor() as usize - if high_root.fract() == 0.0 { 1 } else { 0 };
+
+        high - low + 1
     }
 }
 
