@@ -40,7 +40,7 @@ impl Race {
         let low = low_root.ceil() as usize + if low_root.fract() == 0.0 { 1 } else { 0 };
         let high = high_root.floor() as usize - if high_root.fract() == 0.0 { 1 } else { 0 };
 
-        high - low + 1
+        std::cmp::max(high - low + 1, 0)
     }
 }
 
