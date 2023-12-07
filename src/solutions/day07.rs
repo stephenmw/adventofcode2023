@@ -2,53 +2,40 @@ use anyhow::Ok;
 
 use crate::solutions::prelude::*;
 
+const JACK: u8 = 11;
+const JOKER: u8 = 1;
+
 pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let mut hands = parse!(input);
-    hands.sort_unstable();
+    hands.sort_by_cached_key(|x| (HandType::compute_type(x.cards), x.cards));
     let ans: usize = hands.iter().enumerate().map(|(i, h)| (i + 1) * h.bet).sum();
     Ok(ans.to_string())
 }
 
-pub fn problem2(_input: &str) -> Result<String, anyhow::Error> {
-    todo!()
+pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
+    let mut hands = parse!(input);
+    for h in hands.iter_mut() {
+        h.cards
+            .iter_mut()
+            .filter(|x| **x == JACK)
+            .for_each(|x| *x = JOKER);
+    }
+    hands.sort_by_cached_key(|x| (HandType::compute_type(x.cards), x.cards));
+    let ans: usize = hands.iter().enumerate().map(|(i, h)| (i + 1) * h.bet).sum();
+    Ok(ans.to_string())
 }
 
 type Card = u8;
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug)]
 struct Hand {
     cards: [Card; 5],
     bet: usize,
-    typ: HandType,
 }
 
 impl Hand {
     fn new(cards: [Card; 5], bet: usize) -> Self {
-        Self {
-            cards,
-            bet,
-            typ: HandType::compute_type(cards),
-        }
-    }
-}
-
-impl PartialEq for Hand {
-    fn eq(&self, other: &Self) -> bool {
-        self.cmp(other).is_eq()
-    }
-}
-
-impl PartialOrd for Hand {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Hand {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.typ
-            .cmp(&other.typ)
-            .then_with(|| self.cards.cmp(&other.cards))
+        Self { cards, bet }
     }
 }
 
@@ -68,9 +55,11 @@ impl HandType {
         let mut seen = [0; 6];
         cards.sort_unstable();
 
-        let mut cur_card = cards[0];
+        let num_jokers = cards.iter().filter(|x| **x == JOKER).count();
+
+        let mut cur_card = 0;
         let mut count = 0;
-        for &c in cards.iter() {
+        for &c in cards[num_jokers..].iter() {
             if c != cur_card {
                 seen[count] += 1;
                 count = 0;
@@ -81,6 +70,17 @@ impl HandType {
         }
 
         seen[count] += 1;
+
+        let top = seen
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, x)| **x > 0)
+            .map(|(i, _)| i)
+            .unwrap_or(0);
+
+        seen[top] -= 1;
+        seen[top + num_jokers] += 1;
 
         if seen[5] > 0 {
             Self::FiveOfAKind
@@ -146,6 +146,6 @@ mod tests {
 
     #[test]
     fn problem2_test() {
-        //assert_eq!(problem2(EXAMPLE_INPUT).unwrap(), "")
+        assert_eq!(problem2(EXAMPLE_INPUT).unwrap(), "5905")
     }
 }
