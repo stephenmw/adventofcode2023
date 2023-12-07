@@ -1,5 +1,3 @@
-use anyhow::Ok;
-
 use crate::solutions::prelude::*;
 
 const JACK: u8 = 11;
@@ -7,20 +5,24 @@ const JOKER: u8 = 1;
 
 pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let mut hands = parse!(input);
-    hands.sort_by_cached_key(|x| (HandType::compute_type(x.cards), x.cards));
+    hands.sort_by_cached_key(|x| (x.typ(), x.cards));
     let ans: usize = hands.iter().enumerate().map(|(i, h)| (i + 1) * h.bet).sum();
     Ok(ans.to_string())
 }
 
 pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
     let mut hands = parse!(input);
+
+    // Replace all jacks with jokers
     for h in hands.iter_mut() {
-        h.cards
-            .iter_mut()
-            .filter(|x| **x == JACK)
-            .for_each(|x| *x = JOKER);
+        for card in h.cards.iter_mut() {
+            if *card == JACK {
+                *card = JOKER
+            }
+        }
     }
-    hands.sort_by_cached_key(|x| (HandType::compute_type(x.cards), x.cards));
+
+    hands.sort_by_cached_key(|x| (x.typ(), x.cards));
     let ans: usize = hands.iter().enumerate().map(|(i, h)| (i + 1) * h.bet).sum();
     Ok(ans.to_string())
 }
@@ -37,66 +39,34 @@ impl Hand {
     fn new(cards: [Card; 5], bet: usize) -> Self {
         Self { cards, bet }
     }
-}
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-enum HandType {
-    FiveOfAKind = 7,
-    FourOfAKind = 6,
-    FullHouse = 5,
-    ThreeOfAKind = 4,
-    TwoPair = 3,
-    OnePair = 2,
-    HighCard = 1,
-}
-
-impl HandType {
-    fn compute_type(mut cards: [Card; 5]) -> Self {
+    // Generates a number that corresponds to the type of the hand. A larger
+    // number means a higher ranked type.
+    fn typ(&self) -> u16 {
+        let mut cards = self.cards;
         let mut seen = [0; 6];
         cards.sort_unstable();
 
-        let num_jokers = cards.iter().filter(|x| **x == JOKER).count();
+        // jokers come first when sorted.
+        let num_jokers = cards.iter().take_while(|x| **x == JOKER).count();
+        let mut cs = &cards[num_jokers..];
 
-        let mut cur_card = 0;
-        let mut count = 0;
-        for &c in cards[num_jokers..].iter() {
-            if c != cur_card {
-                seen[count] += 1;
-                count = 0;
+        while let Some(&next) = cs.first() {
+            let cnt = cs.iter().take_while(|x| **x == next).count();
+            seen[cnt] += 1;
+            cs = &cs[cnt..];
+        }
+
+        let top = seen.iter().enumerate().rev().find(|(_, x)| **x > 0);
+        match top {
+            Some((i, _)) => {
+                seen[i] -= 1;
+                seen[i + num_jokers] += 1;
             }
-
-            cur_card = c;
-            count += 1;
+            None => seen[num_jokers] += 1,
         }
 
-        seen[count] += 1;
-
-        let top = seen
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_, x)| **x > 0)
-            .map(|(i, _)| i)
-            .unwrap_or(0);
-
-        seen[top] -= 1;
-        seen[top + num_jokers] += 1;
-
-        if seen[5] > 0 {
-            Self::FiveOfAKind
-        } else if seen[4] > 0 {
-            Self::FourOfAKind
-        } else if seen[3] == 1 && seen[2] == 1 {
-            Self::FullHouse
-        } else if seen[3] > 0 {
-            Self::ThreeOfAKind
-        } else if seen[2] == 2 {
-            Self::TwoPair
-        } else if seen[2] == 1 {
-            Self::OnePair
-        } else {
-            Self::HighCard
-        }
+        seen[1..].iter().rev().fold(0, |acc, &x| (acc << 3) + x)
     }
 }
 
