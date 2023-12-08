@@ -4,7 +4,7 @@ use crate::{solutions::prelude::*, utils::lcm};
 
 pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let (dir, node_descs) = parse!(input);
-    let nodes = build_nodes(node_descs)?;
+    let nodes = build_nodes(&node_descs)?;
 
     let start = nodes
         .iter()
@@ -17,7 +17,7 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
 
 pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
     let (dir, node_descs) = parse!(input);
-    let nodes = build_nodes(node_descs)?;
+    let nodes = build_nodes(&node_descs)?;
 
     let starts = nodes
         .iter()
@@ -32,35 +32,30 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
     Ok(cycles_lcm.to_string())
 }
 
-fn build_nodes(mut descs: Vec<NodeDesc>) -> Result<Vec<Node>, anyhow::Error> {
-    let mut nodes: Vec<Node> = descs
-        .iter_mut()
-        .map(|x| Node {
-            id: std::mem::take(&mut x.id),
-            left: 0,
-            right: 0,
-        })
-        .collect();
-
-    let m: AHashMap<String, usize> = nodes
+fn build_nodes(descs: &[NodeDesc]) -> Result<Vec<Node>, anyhow::Error> {
+    let m: AHashMap<&str, usize> = descs
         .iter()
         .enumerate()
-        .map(|(i, n)| (n.id.clone(), i))
+        .map(|(i, n)| (n.id.as_str(), i))
         .collect();
 
-    for (i, node) in nodes.iter_mut().enumerate() {
-        let left_id = descs[i].left.as_str();
-        let right_id = descs[i].right.as_str();
+    descs
+        .iter()
+        .map(|d| {
+            let left_id = d.left.as_str();
+            let right_id = d.right.as_str();
 
-        node.left = *m
-            .get(left_id)
-            .ok_or_else(|| anyhow!("node `{}` not declared", left_id))?;
-        node.right = *m
-            .get(right_id)
-            .ok_or_else(|| anyhow!("node `{}` not declared", right_id))?;
-    }
-
-    Ok(nodes)
+            Ok(Node {
+                id: &d.id,
+                left: *m
+                    .get(left_id)
+                    .ok_or_else(|| anyhow!("node `{}` not declared", left_id))?,
+                right: *m
+                    .get(right_id)
+                    .ok_or_else(|| anyhow!("node `{}` not declared", right_id))?,
+            })
+        })
+        .collect()
 }
 
 fn moves_until_end(
@@ -96,13 +91,13 @@ struct NodeDesc {
 }
 
 #[derive(Clone, Debug)]
-struct Node {
-    id: String,
+struct Node<'a> {
+    id: &'a str,
     left: usize,
     right: usize,
 }
 
-impl Node {
+impl<'a> Node<'a> {
     fn get(&self, d: Direction) -> usize {
         match d {
             Direction::Left => self.left,
