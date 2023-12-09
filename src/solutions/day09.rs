@@ -4,12 +4,7 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let hists = parse!(input);
     let ans: i64 = hists
         .into_iter()
-        .map(|x| {
-            compute_derivatives(x)
-                .into_iter()
-                .map(|xs| xs.last().copied().unwrap_or(0))
-                .sum::<i64>()
-        })
+        .map(|x| DerivativeIterator::new(x, |hist| hist.last().copied().unwrap_or(0)).sum::<i64>())
         .sum();
     Ok(ans.to_string())
 }
@@ -19,28 +14,43 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
     let ans: i64 = hists
         .into_iter()
         .map(|x| {
-            compute_derivatives(x)
-                .into_iter()
-                .rev()
-                .map(|xs| xs.first().copied().unwrap_or(0))
-                .fold(0, |acc, x| x - acc)
+            DerivativeIterator::new(x, |hist| hist.first().copied().unwrap_or(0))
+                .fold((0, false), |(acc, neg), x| {
+                    // negate every other number. Ex: 10 - 3 + 0 - 2
+                    (acc + x * if neg { -1 } else { 1 }, !neg)
+                })
+                .0
         })
         .sum();
     Ok(ans.to_string())
 }
 
-fn compute_derivatives(nums: Vec<i64>) -> Vec<Vec<i64>> {
-    fn next_line(nums: &[i64]) -> Vec<i64> {
-        nums.windows(2).map(|xs| xs[1] - xs[0]).collect()
-    }
+struct DerivativeIterator<F: Fn(&[i64]) -> O, O> {
+    nums: Vec<i64>,
+    f: F,
+}
 
-    let mut derivatives = vec![nums];
-    while derivatives.last().unwrap().iter().any(|&x| x != 0) {
-        let n = next_line(derivatives.last().unwrap());
-        derivatives.push(n);
+impl<F: Fn(&[i64]) -> O, O> DerivativeIterator<F, O> {
+    fn new(nums: Vec<i64>, f: F) -> Self {
+        Self { nums, f }
     }
+}
 
-    derivatives
+impl<F: Fn(&[i64]) -> O, O> Iterator for DerivativeIterator<F, O> {
+    type Item = O;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.nums.iter().all(|&x| x == 0) {
+            return None;
+        }
+
+        let ret = (self.f)(&self.nums);
+
+        (0..self.nums.len() - 1).for_each(|i| self.nums[i] = self.nums[i + 1] - self.nums[i]);
+        self.nums.pop();
+
+        Some(ret)
+    }
 }
 
 mod parser {
