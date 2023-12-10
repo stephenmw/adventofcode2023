@@ -55,26 +55,23 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
         }
     }
 
-    let left_set: Option<AHashSet<_>> = left_side
-        .into_iter()
-        .filter(|p| match p {
-            Some(x) => !loop_points.contains(x),
-            None => true,
-        })
-        .collect();
-    let right_set: Option<AHashSet<_>> = right_side
-        .into_iter()
-        .filter(|p| match p {
-            Some(x) => !loop_points.contains(x),
-            None => true,
-        })
-        .collect();
+    let eval_side = |xs: Vec<Option<Point>>| -> Option<usize> {
+        let set: Option<AHashSet<Point>> = xs
+            .into_iter()
+            .filter(|p| match p {
+                Some(x) => !loop_points.contains(x),
+                None => true,
+            })
+            .collect();
+        set.and_then(|s| fill(&s, &loop_points))
+    };
 
-    let left_ans = left_set.and_then(|ls| fill(&ls, &loop_points));
-    let right_ans = right_set.and_then(|rs| fill(&rs, &loop_points));
+    let left_ans = eval_side(left_side);
+    let right_ans = eval_side(right_side);
+
     let ans = left_ans
         .xor(right_ans)
-        .ok_or_else(|| anyhow!("one and only one side may be correct"))?;
+        .ok_or_else(|| anyhow!("one and only one side may be inside the loop"))?;
 
     Ok(ans.to_string())
 }
