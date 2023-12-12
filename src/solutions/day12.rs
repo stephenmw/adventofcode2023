@@ -1,5 +1,3 @@
-use ahash::AHashMap;
-
 use crate::solutions::prelude::*;
 
 pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
@@ -26,20 +24,16 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
 }
 
 fn num_arrangements(r: &Row) -> usize {
-    num_arrangement_rec(r, 0, 0, &mut AHashMap::new())
+    let mut memo = vec![None; r.cells.len() * (r.groups.len() + 1)];
+    num_arrangement_rec(r, 0, 0, &mut memo)
 }
 
 fn num_arrangement_rec(
     r: &Row,
     mut pos: usize,
     group_index: usize,
-    memo: &mut AHashMap<(usize, usize), usize>,
+    memo: &mut Vec<Option<usize>>,
 ) -> usize {
-    let orig_pos = pos;
-    if let Some(&v) = memo.get(&(orig_pos, group_index)) {
-        return v;
-    }
-
     while r.cells.get(pos) == Some(&Cell::Operational) {
         pos += 1;
     }
@@ -47,6 +41,11 @@ fn num_arrangement_rec(
     let Some(&c) = r.cells.get(pos) else {
         return if group_index == r.groups.len() { 1 } else { 0 };
     };
+
+    let memo_index = pos * (r.groups.len() + 1) + group_index;
+    if let Some(v) = memo[memo_index] {
+        return v;
+    }
 
     let assume_operational = if c == Cell::Unknown {
         num_arrangement_rec(r, pos + 1, group_index, memo)
@@ -75,7 +74,7 @@ fn num_arrangement_rec(
     };
 
     let ret = assume_operational + assume_damaged;
-    memo.insert((orig_pos, group_index), ret);
+    memo[memo_index] = Some(ret);
     ret
 }
 
