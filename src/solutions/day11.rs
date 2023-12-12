@@ -45,13 +45,13 @@ fn expand(locs: &[Point], factor: usize) -> Vec<Point> {
 }
 
 fn sum_of_distances(points: &[Point]) -> usize {
-    (0..points.len())
-        .flat_map(|i| std::iter::repeat(i).zip((i + 1)..points.len()))
-        .map(|(i, j)| {
-            let a = points[i];
-            let b = points[j];
-            a.x.abs_diff(b.x) + a.y.abs_diff(b.y)
-        })
+    let pairs = points
+        .iter()
+        .enumerate()
+        .flat_map(|(i, a)| std::iter::repeat(a).zip(&points[i + 1..]));
+
+    pairs
+        .map(|(a, b)| a.x.abs_diff(b.x) + a.y.abs_diff(b.y))
         .sum()
 }
 
