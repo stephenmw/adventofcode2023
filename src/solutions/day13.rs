@@ -20,61 +20,43 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
 }
 
 fn find_v_mirror(grid: &Grid<Cell>, num_smudges: usize) -> Option<usize> {
-    let (cols, rows) = grid.size();
-
-    'mirror: for mirror in 1..cols {
-        let mut num_diffs = 0;
-        'cols: for c in mirror..cols {
-            for r in 0..rows {
-                let reflection = (2 * mirror).checked_sub(c + 1).map(|c| Point::new(c, r));
-                let Some(reflect_val) = reflection.and_then(|p| grid.get(p)) else {
-                    break 'cols;
-                };
-                let val = grid.get(Point::new(c, r)).unwrap();
-                if reflect_val != val {
-                    num_diffs += 1;
-                    if num_diffs > num_smudges {
-                        continue 'mirror;
-                    }
-                }
-            }
-        }
-
-        if num_diffs == num_smudges {
-            return Some(mirror);
-        }
+    fn reflect(p: Point, mirror: usize) -> Point {
+        let col = 2 * mirror - p.x - 1;
+        Point::new(col, p.y)
     }
 
-    None
+    let (cols, rows) = grid.size();
+
+    (1..cols).find(|&mirror| {
+        let left_points = (0..mirror)
+            .rev()
+            .flat_map(|c| (0..rows).map(move |r| Point::new(c, r)));
+        let diffs = left_points
+            .map_while(|p| Some(grid.get(p).unwrap() == grid.get(reflect(p, mirror))?))
+            .filter(|&x| x == false)
+            .count();
+        diffs == num_smudges
+    })
 }
 
 fn find_h_mirror(grid: &Grid<Cell>, num_smudges: usize) -> Option<usize> {
-    let (cols, rows) = grid.size();
-
-    'mirror: for mirror in 1..rows {
-        let mut num_diffs = 0;
-        'rows: for r in mirror..rows {
-            for c in 0..cols {
-                let reflection = (2 * mirror).checked_sub(r + 1).map(|r| Point::new(c, r));
-                let Some(reflect_val) = reflection.and_then(|p| grid.get(p)) else {
-                    break 'rows;
-                };
-                let val = grid.get(Point::new(c, r)).unwrap();
-                if reflect_val != val {
-                    num_diffs += 1;
-                    if num_diffs > num_smudges {
-                        continue 'mirror;
-                    }
-                }
-            }
-        }
-
-        if num_diffs == num_smudges {
-            return Some(mirror);
-        }
+    fn reflect(p: Point, mirror: usize) -> Point {
+        let row = 2 * mirror - p.y - 1;
+        Point::new(p.x, row)
     }
 
-    None
+    let (cols, rows) = grid.size();
+
+    (1..rows).find(|&mirror| {
+        let top_points = (0..mirror)
+            .rev()
+            .flat_map(|r| (0..cols).map(move |c| Point::new(c, r)));
+        let diffs = top_points
+            .map_while(|p| Some(grid.get(p).unwrap() == grid.get(reflect(p, mirror))?))
+            .filter(|&x| x == false)
+            .count();
+        diffs == num_smudges
+    })
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
