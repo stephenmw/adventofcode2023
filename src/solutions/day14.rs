@@ -1,6 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::fmt::{Debug, Write};
-use std::mem;
+use std::rc::Rc;
 
 use ahash::AHashMap;
 
@@ -11,7 +11,7 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let grid = parse!(input);
 
     let mut rg = RotatingGrid::from(&grid);
-    rg.slide_up();
+    rg.slide_up(0);
 
     Ok(rg.score().to_string())
 }
@@ -20,11 +20,14 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
     let grid = parse!(input);
 
     let mut rg = RotatingGrid::from(&grid);
-    let mut seen = AHashMap::new();
+    let mut history = Vec::new();
+    let mut seen_locations = AHashMap::new();
 
-    let mut i = 0;
+    let mut i: usize = 0;
     let (repeat_start, repeat_len) = 'l: loop {
-        match seen.entry(rg.values.clone()) {
+        let c = Rc::new(rg.round_rocks.clone());
+        history.push(c.clone());
+        match seen_locations.entry(c) {
             Entry::Occupied(e) => {
                 break 'l (*e.get(), i - *e.get());
             }
@@ -38,62 +41,116 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
         i += 1;
     };
 
-    for _ in 0..(1_000_000_000 - repeat_start) % repeat_len {
-        rg.cycle();
-    }
+    rg.round_rocks = (*history[repeat_start + (1_000_000_000 - repeat_start) % repeat_len]).clone();
 
     Ok(rg.score().to_string())
 }
 
+#[derive(Clone)]
 struct RotatingGrid {
     cols: usize,
     rows: usize,
-    values: Vec<(Point, Cell)>,
+    round_rocks: Vec<Point>,
+    square_rock_rotations: [Vec<Point>; 4],
 }
 
 impl RotatingGrid {
+    fn new(cols: usize, rows: usize, values: &[(Point, Cell)]) -> Self {
+        let round_rocks = values
+            .iter()
+            .filter_map(|&(p, v)| (v == Cell::Round).then_some(p))
+            .collect();
+
+        let mut square_rocks: Vec<_> = values
+            .iter()
+            .filter_map(|&(p, v)| (v == Cell::Square).then_some(p))
+            .collect();
+        square_rocks.sort_unstable();
+
+        let mut square_rock_rotations = [square_rocks, Vec::new(), Vec::new(), Vec::new()];
+        let mut c = cols;
+        let mut r = rows;
+        for i in 1..square_rock_rotations.len() {
+            square_rock_rotations[i] = square_rock_rotations[i - 1].clone();
+            rotate_clockwise(c, &mut square_rock_rotations[i]);
+            square_rock_rotations[i].sort_unstable();
+            std::mem::swap(&mut c, &mut r);
+        }
+
+        Self {
+            cols,
+            rows,
+            round_rocks,
+            square_rock_rotations,
+        }
+    }
+
     fn cycle(&mut self) {
-        for _ in 0..4 {
-            self.slide_up();
-            self.rotate_clockwise();
+        let mut cols = self.cols;
+        let mut rows = self.rows;
+
+        for i in 0..4 {
+            self.slide_up(i);
+            rotate_clockwise(cols, &mut self.round_rocks);
+            std::mem::swap(&mut cols, &mut rows);
         }
     }
 
-    fn rotate_clockwise(&mut self) {
-        for (p, _) in self.values.iter_mut() {
-            *p = Point::new(self.cols - p.y - 1, p.x);
-        }
-        mem::swap(&mut self.cols, &mut self.rows);
-    }
+    fn slide_up(&mut self, orientation: usize) {
+        self.round_rocks.sort_unstable();
 
-    fn slide_up(&mut self) {
-        self.values.sort_unstable();
-        let mut vs = self.values.as_mut_slice();
-        while let Some((first, _)) = vs.first() {
-            let n = vs.iter().take_while(|(p, _)| p.x == first.x).count();
-            let mut next_open = 0;
-            for (p, v) in vs[..n].iter_mut() {
-                if v == &Cell::Round {
-                    p.y = next_open;
+        let mut round_rocks = self.round_rocks.iter_mut().peekable();
+        let mut square_rocks = self.square_rock_rotations[orientation].iter().peekable();
+
+        let mut cur_col = 0;
+        let mut next_row = 0;
+
+        loop {
+            let next = match (round_rocks.peek(), square_rocks.peek()) {
+                (Some(round), Some(square)) => {
+                    if **round <= **square {
+                        Rock::Round(round_rocks.next().unwrap())
+                    } else {
+                        Rock::Square(square_rocks.next().unwrap())
+                    }
                 }
-                next_open = p.y + 1;
+                (Some(_), None) => Rock::Round(round_rocks.next().unwrap()),
+                (None, Some(_)) => Rock::Square(square_rocks.next().unwrap()),
+                (None, None) => break,
+            };
+
+            let p = next.point();
+            if p.x != cur_col {
+                cur_col = p.x;
+                next_row = 0;
             }
-            vs = &mut vs[n..];
+
+            match next {
+                Rock::Round(p) => {
+                    p.y = next_row;
+                    next_row += 1;
+                }
+                Rock::Square(p) => {
+                    next_row = p.y + 1;
+                }
+            }
         }
     }
 
     fn score(&self) -> usize {
-        self.values
-            .iter()
-            .filter(|(_, v)| v == &Cell::Round)
-            .map(|(p, _)| self.rows - p.y)
-            .sum()
+        self.round_rocks.iter().map(|p| (self.rows - p.y)).sum()
     }
 }
 
 impl Debug for RotatingGrid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut values = self.values.clone();
+        let mut values = Vec::from_iter(
+            self.round_rocks.iter().map(|&p| (p, Cell::Round)).chain(
+                self.square_rock_rotations[0]
+                    .iter()
+                    .map(|&p| (p, Cell::Square)),
+            ),
+        );
         values.sort_unstable();
 
         for row in 0..self.rows {
@@ -118,11 +175,32 @@ impl Debug for RotatingGrid {
 impl From<&Grid<Cell>> for RotatingGrid {
     fn from(grid: &Grid<Cell>) -> Self {
         let (cols, rows) = grid.size();
-        let values = grid
+        let values: Vec<_> = grid
             .iter_points()
             .filter_map(|p| Some((p, grid.get(p).copied()?)).filter(|(_, v)| v != &Cell::Empty))
             .collect();
-        Self { cols, rows, values }
+
+        Self::new(cols, rows, &values)
+    }
+}
+
+fn rotate_clockwise(cols: usize, points: &mut [Point]) {
+    for p in points.iter_mut() {
+        *p = Point::new(cols - p.y - 1, p.x);
+    }
+}
+
+enum Rock<'a> {
+    Square(&'a Point),
+    Round(&'a mut Point),
+}
+
+impl<'a> Rock<'a> {
+    fn point(&self) -> &Point {
+        match self {
+            Self::Square(p) => p,
+            Self::Round(p) => p,
+        }
     }
 }
 
