@@ -38,9 +38,7 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
         i += 1;
     };
 
-    let mut rg = RotatingGrid::from(&grid);
-    let cycles = repeat_start + (1_000_000_000 - repeat_start) % repeat_len;
-    for _ in 0..cycles {
+    for _ in 0..(1_000_000_000 - repeat_start) % repeat_len {
         rg.cycle();
     }
 
