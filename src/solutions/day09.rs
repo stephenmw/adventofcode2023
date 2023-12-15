@@ -4,52 +4,47 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let hists = parse!(input);
     let ans: i64 = hists
         .into_iter()
-        .map(|x| DerivativeIterator::new(x, |hist| hist.last().copied().unwrap_or(0)).sum::<i64>())
+        .flat_map(|x| DerivativeIterator::new(x))
         .sum();
     Ok(ans.to_string())
 }
 
 pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
-    let hists = parse!(input);
+    let mut hists = parse!(input);
+    hists.iter_mut().for_each(|x| x.reverse());
     let ans: i64 = hists
         .into_iter()
-        .map(|x| {
-            DerivativeIterator::new(x, |hist| hist.first().copied().unwrap_or(0))
-                .fold((0, false), |(acc, neg), x| {
-                    // negate every other number. Ex: 10 - 3 + 0 - 2
-                    (acc + x * if neg { -1 } else { 1 }, !neg)
-                })
-                .0
-        })
+        .flat_map(|x| DerivativeIterator::new(x))
         .sum();
     Ok(ans.to_string())
 }
 
-struct DerivativeIterator<F: Fn(&[i64]) -> O, O> {
+struct DerivativeIterator {
     nums: Vec<i64>,
-    f: F,
 }
 
-impl<F: Fn(&[i64]) -> O, O> DerivativeIterator<F, O> {
-    fn new(nums: Vec<i64>, f: F) -> Self {
-        Self { nums, f }
+impl DerivativeIterator {
+    fn new(nums: Vec<i64>) -> Self {
+        Self { nums }
     }
 }
 
-impl<F: Fn(&[i64]) -> O, O> Iterator for DerivativeIterator<F, O> {
-    type Item = O;
+impl Iterator for DerivativeIterator {
+    type Item = i64;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.nums.iter().all(|&x| x == 0) {
             return None;
         }
 
-        let ret = (self.f)(&self.nums);
+        let ret = self.nums.last().copied();
 
-        (0..self.nums.len() - 1).for_each(|i| self.nums[i] = self.nums[i + 1] - self.nums[i]);
+        for i in 0..self.nums.len() - 1 {
+            self.nums[i] = self.nums[i + 1] - self.nums[i];
+        }
         self.nums.pop();
 
-        Some(ret)
+        ret
     }
 }
 
