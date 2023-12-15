@@ -71,29 +71,31 @@ impl Hand {
 }
 
 mod parser {
-    use nom::multi::many_m_n;
+    use nom::multi::fill;
 
     use super::*;
     use crate::parser::prelude::*;
 
     pub fn parse(input: &str) -> IResult<&str, Vec<Hand>> {
-        let card = alt((
-            one_of("23456789").map(|c| c.to_digit(10).unwrap() as u8),
-            value(10, tag("T")),
-            value(11, tag("J")),
-            value(12, tag("Q")),
-            value(13, tag("K")),
-            value(14, tag("A")),
-        ));
-
-        let five_cards = many_m_n(5, 5, card).map(|s| {
-            let mut a = [0; 5];
-            a[..].copy_from_slice(&s);
-            a
-        });
-
         let hand = separated_pair(five_cards, space1, uint).map(|(c, b)| Hand::new(c, b));
         ws_all_consuming(many1(ws_line(hand)))(input)
+    }
+
+    fn five_cards(input: &str) -> IResult<&str, [Card; 5]> {
+        let card = |input| {
+            alt((
+                one_of("23456789").map(|c| c.to_digit(10).unwrap() as u8),
+                value(10, tag("T")),
+                value(11, tag("J")),
+                value(12, tag("Q")),
+                value(13, tag("K")),
+                value(14, tag("A")),
+            ))(input)
+        };
+
+        let mut buf = [0; 5];
+        let (rest, ()) = fill(card, &mut buf)(input)?;
+        Ok((rest, buf))
     }
 }
 
