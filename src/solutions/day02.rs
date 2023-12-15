@@ -6,7 +6,7 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let games = parse!(input);
     let ans: usize = games
         .iter()
-        .map(|g| (g.id, g.max_combined_set()))
+        .map(|g| (g.id, g.max_combined_draw()))
         .filter(|(_, s)| s.red <= 12 && s.blue <= 14 && s.green <= 13)
         .map(|(id, _)| id)
         .sum();
@@ -16,34 +16,34 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
 
 pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
     let games = parse!(input);
-    let ans: usize = games.iter().map(|g| g.max_combined_set().power()).sum();
+    let ans: usize = games.iter().map(|g| g.max_combined_draw().power()).sum();
     Ok(ans.to_string())
 }
 
 #[derive(Clone, Debug)]
 struct Game {
     id: usize,
-    sets: Vec<Set>,
+    draws: Vec<Draw>,
 }
 
 impl Game {
-    fn max_combined_set(&self) -> Set {
-        self.sets
+    fn max_combined_draw(&self) -> Draw {
+        self.draws
             .iter()
-            .fold(Set::default(), |acc, x| acc.max_combined(x))
+            .fold(Draw::default(), |acc, x| acc.max_combined(x))
     }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-struct Set {
+struct Draw {
     red: usize,
     blue: usize,
     green: usize,
 }
 
-impl Set {
-    fn max_combined(&self, other: &Set) -> Set {
-        Set {
+impl Draw {
+    fn max_combined(&self, other: &Draw) -> Draw {
+        Draw {
             red: cmp::max(self.red, other.red),
             blue: cmp::max(self.blue, other.blue),
             green: cmp::max(self.green, other.green),
@@ -60,24 +60,26 @@ mod parser {
     use crate::parser::prelude::*;
 
     pub fn parse(input: &str) -> IResult<&str, Vec<Game>> {
-        let color = alt((tag("red"), tag("blue"), tag("green")));
-        let set_value = separated_pair(uint, space1, color);
-        let set = separated_list1(tag(", "), set_value).map(|values| {
-            let mut ret = Set::default();
-            for (count, color) in values {
-                match color {
-                    "red" => ret.red = count,
-                    "blue" => ret.blue = count,
-                    "green" => ret.green = count,
-                    _ => unreachable!(),
-                }
-            }
-            ret
-        });
-        let sets = separated_list1(tag("; "), set);
+        let draws = separated_list1(tag("; "), draw);
         let game_id = delimited(tag("Game "), uint, tag(":"));
-        let game = separated_pair(game_id, space1, sets).map(|(id, sets)| Game { id, sets });
+        let game = separated_pair(game_id, space1, draws).map(|(id, draws)| Game { id, draws });
         ws_all_consuming(many1(ws_line(game)))(input)
+    }
+
+    fn draw(input: &str) -> IResult<&str, Draw> {
+        let color = alt((tag("red"), tag("blue"), tag("green")));
+        let draw_value = separated_pair(uint, space1, color);
+        let g = |mut acc: Draw, (count, color)| {
+            match color {
+                "red" => acc.red = count,
+                "blue" => acc.blue = count,
+                "green" => acc.green = count,
+                _ => unreachable!(),
+            };
+            acc
+        };
+
+        fold_separated_list1(tag(", "), draw_value, Draw::default, g)(input)
     }
 }
 

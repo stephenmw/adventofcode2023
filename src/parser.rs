@@ -17,7 +17,7 @@ pub mod prelude {
         AsChar, IResult, InputTakeAtPosition, Parser,
     };
 
-    pub use super::{complete, int, uint, ws_all_consuming, ws_line};
+    pub use super::{complete, fold_separated_list1, int, uint, ws_all_consuming, ws_line};
 }
 
 pub fn uint<T: FromStr>(input: &str) -> IResult<&str, T> {
@@ -62,4 +62,47 @@ where
 {
     let end_of_line = alt((line_ending, eof));
     delimited(space0, parser, tuple((space0, end_of_line)))
+}
+
+pub fn fold_separated_list1<I, O, O2, R, A, E, F, G, H>(
+    mut sep: G,
+    mut f: F,
+    mut init: H,
+    mut fold_fn: A,
+) -> impl FnMut(I) -> IResult<I, R, E>
+where
+    I: Clone + nom::InputLength,
+    F: Parser<I, O, E>,
+    G: Parser<I, O2, E>,
+    A: FnMut(R, O) -> R,
+    H: FnMut() -> R,
+    E: ParseError<I>,
+{
+    move |input| {
+        let mut acc = init();
+        let (mut rest, o1) = f.parse(input)?;
+        acc = fold_fn(acc, o1);
+
+        let mut next_parser = preceded(|input| sep.parse(input), |input| f.parse(input));
+
+        loop {
+            let (r, o) = match next_parser.parse(rest.clone()) {
+                Ok(x) => x,
+                Err(_) => break,
+            };
+
+            // Check that the input advanced. It must advance to prevent infinte loops.
+            if rest.input_len() == r.input_len() {
+                return Err(nom::Err::Error(E::from_error_kind(
+                    rest,
+                    nom::error::ErrorKind::Many1,
+                )));
+            }
+
+            rest = r;
+            acc = fold_fn(acc, o);
+        }
+
+        Ok((rest, acc))
+    }
 }
