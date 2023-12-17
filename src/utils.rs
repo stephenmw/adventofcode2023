@@ -1,3 +1,5 @@
+mod merge;
+
 #[derive(Debug)]
 pub struct HeapElement<K, V> {
     pub key: K,
@@ -30,6 +32,20 @@ impl<K: Ord, V> Ord for HeapElement<K, V> {
 impl<K: Ord, V> PartialOrd for HeapElement<K, V> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl<K: Ord + Clone, V: Clone> Clone for HeapElement<K, V> {
+    fn clone(&self) -> Self {
+        Self {
+            key: self.key.clone(),
+            value: self.clone().value,
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.key.clone_from(&source.key);
+        self.value.clone_from(&source.value);
     }
 }
 
