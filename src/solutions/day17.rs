@@ -21,7 +21,7 @@ fn solve(grid: &Grid<u8>, min_dir: u8, max_dir: u8) -> usize {
     let (cols, rows) = grid.size();
     let target_point = Point::new(cols - 1, rows - 1);
 
-    let mut seen = HashSet::default();
+    let mut seen = vec![false; WalkState::max_int_state(cols, rows, max_dir)];
     let mut frontier = BinaryHeap::new();
 
     let start = WalkState {
@@ -46,7 +46,11 @@ fn solve(grid: &Grid<u8>, min_dir: u8, max_dir: u8) -> usize {
         }
 
         for next_state in elem.value.iter_next(min_dir, max_dir) {
-            if seen.insert(next_state.clone()) {
+            let Some(s_index) = next_state.as_int(cols, rows, max_dir) else {
+                continue;
+            };
+            if !seen[s_index] {
+                seen[s_index] = true;
                 frontier.push(Reverse((new_cost, next_state).into()));
             }
         }
@@ -55,7 +59,7 @@ fn solve(grid: &Grid<u8>, min_dir: u8, max_dir: u8) -> usize {
     unreachable!("no solution");
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct WalkState {
     loc: Point,
     dir: Direction,
@@ -82,6 +86,22 @@ impl WalkState {
                 },
             })
         })
+    }
+
+    fn as_int(&self, cols: usize, rows: usize, max_dir: u8) -> Option<usize> {
+        let max_dir = max_dir as usize + 1;
+
+        (self.loc.x < cols && self.loc.y < rows).then(|| {
+            self.loc.x * rows * max_dir * 4
+                + self.loc.y * max_dir * 4
+                + self.straight_count as usize * 4
+                + self.dir as usize
+        })
+    }
+
+    fn max_int_state(cols: usize, rows: usize, max_dir: u8) -> usize {
+        let max_dir = max_dir as usize + 1;
+        cols * rows * max_dir * 4
     }
 }
 
