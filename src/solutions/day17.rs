@@ -1,11 +1,5 @@
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
-
-use ahash::HashSet;
-
 use crate::grid::{Direction, Grid, Point};
 use crate::solutions::prelude::*;
-use crate::utils::HeapElement;
 
 pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let grid = parse!(input);
@@ -22,7 +16,7 @@ fn solve(grid: &Grid<u8>, min_dir: u8, max_dir: u8) -> usize {
     let target_point = Point::new(cols - 1, rows - 1);
 
     let mut seen = vec![false; WalkState::max_int_state(cols, rows, max_dir)];
-    let mut frontier = BinaryHeap::new();
+    let mut frontier = StupidPriorityQueue::default();
 
     let start = WalkState {
         loc: Point::new(0, 0),
@@ -31,27 +25,27 @@ fn solve(grid: &Grid<u8>, min_dir: u8, max_dir: u8) -> usize {
     };
 
     for state in start.iter_next(0, 1) {
-        frontier.push(Reverse(HeapElement::from((0usize, state))));
+        frontier.push(0, state);
     }
 
-    while let Some(elem) = frontier.pop().map(|x| x.0) {
-        let Some(&additional_cost) = grid.get(elem.value.loc) else {
+    while let Some((cost, state)) = frontier.pop() {
+        let Some(&additional_cost) = grid.get(state.loc) else {
             continue;
         };
 
-        let new_cost = elem.key + additional_cost as usize;
+        let new_cost = cost + additional_cost as usize;
 
-        if elem.value.loc == target_point && elem.value.straight_count >= min_dir {
+        if state.loc == target_point && state.straight_count >= min_dir {
             return new_cost;
         }
 
-        for next_state in elem.value.iter_next(min_dir, max_dir) {
+        for next_state in state.iter_next(min_dir, max_dir) {
             let Some(s_index) = next_state.as_int(cols, rows, max_dir) else {
                 continue;
             };
             if !seen[s_index] {
                 seen[s_index] = true;
-                frontier.push(Reverse((new_cost, next_state).into()));
+                frontier.push(new_cost, next_state);
             }
         }
     }
@@ -102,6 +96,41 @@ impl WalkState {
     fn max_int_state(cols: usize, rows: usize, max_dir: u8) -> usize {
         let max_dir = max_dir as usize + 1;
         cols * rows * max_dir * 4
+    }
+}
+
+#[derive(Clone, Debug)]
+struct StupidPriorityQueue<V> {
+    queue: Vec<Vec<V>>,
+    min_key: usize,
+}
+
+impl<V> StupidPriorityQueue<V> {
+    fn push(&mut self, k: usize, v: V) {
+        self.min_key = std::cmp::min(self.min_key, k);
+        if k >= self.queue.len() {
+            self.queue.resize_with(k + 1, Vec::new);
+        }
+        self.queue[k].push(v);
+    }
+
+    fn pop(&mut self) -> Option<(usize, V)> {
+        let k = self.queue[self.min_key..]
+            .iter()
+            .position(|x| !x.is_empty())?
+            + self.min_key;
+        self.min_key = k;
+        let v = self.queue[k].pop()?;
+        Some((k, v))
+    }
+}
+
+impl<V> Default for StupidPriorityQueue<V> {
+    fn default() -> Self {
+        StupidPriorityQueue {
+            queue: Vec::default(),
+            min_key: 0,
+        }
     }
 }
 
