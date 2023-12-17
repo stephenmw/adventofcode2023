@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::grid::{Direction, Grid, Point};
 use crate::solutions::prelude::*;
 
@@ -16,7 +18,7 @@ fn solve(grid: &Grid<u8>, min_dir: u8, max_dir: u8) -> usize {
     let target_point = Point::new(cols - 1, rows - 1);
 
     let mut seen = vec![false; WalkState::max_int_state(cols, rows, max_dir)];
-    let mut frontier = StupidPriorityQueue::default();
+    let mut frontier = RollingPriorityQueue::default();
 
     let start = WalkState {
         loc: Point::new(0, 0),
@@ -100,35 +102,38 @@ impl WalkState {
 }
 
 #[derive(Clone, Debug)]
-struct StupidPriorityQueue<V> {
-    queue: Vec<Vec<V>>,
+struct RollingPriorityQueue<V> {
+    queue: VecDeque<Vec<V>>,
     min_key: usize,
 }
 
-impl<V> StupidPriorityQueue<V> {
+impl<V> RollingPriorityQueue<V> {
     fn push(&mut self, k: usize, v: V) {
-        self.min_key = std::cmp::min(self.min_key, k);
-        if k >= self.queue.len() {
-            self.queue.resize_with(k + 1, Vec::new);
+        let i = k
+            .checked_sub(self.min_key)
+            .expect("RollingPriorityQueue: priority must be same or greater than minimum");
+        if i >= self.queue.len() {
+            self.queue.resize_with(i + 1, Vec::new);
         }
-        self.queue[k].push(v);
+        self.queue[i].push(v);
     }
 
     fn pop(&mut self) -> Option<(usize, V)> {
-        let k = self.queue[self.min_key..]
-            .iter()
-            .position(|x| !x.is_empty())?
-            + self.min_key;
-        self.min_key = k;
-        let v = self.queue[k].pop()?;
+        let i = self.queue.iter().position(|x| !x.is_empty())?;
+        let k = i + self.min_key;
+        let v = self.queue[i].pop()?;
+
+        self.min_key += i;
+        self.queue.rotate_left(i);
+
         Some((k, v))
     }
 }
 
-impl<V> Default for StupidPriorityQueue<V> {
+impl<V> Default for RollingPriorityQueue<V> {
     fn default() -> Self {
-        StupidPriorityQueue {
-            queue: Vec::default(),
+        RollingPriorityQueue {
+            queue: VecDeque::default(),
             min_key: 0,
         }
     }
