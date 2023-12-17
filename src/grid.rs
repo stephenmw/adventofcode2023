@@ -100,10 +100,10 @@ impl Point {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
+    Up = 0,
+    Left = 1,
+    Down = 2,
+    Right = 3,
 }
 
 impl Direction {

@@ -1,3 +1,7 @@
+mod bitfield;
+
+pub use bitfield::FixedBitField;
+
 #[derive(Debug)]
 pub struct HeapElement<K, V> {
     pub key: K,

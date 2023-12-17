@@ -4,6 +4,7 @@ use arrayvec::ArrayVec;
 
 use crate::grid::{Direction, Grid, Point};
 use crate::solutions::prelude::*;
+use crate::utils::FixedBitField;
 
 pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let grid = parse!(input);
@@ -34,12 +35,12 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
 
 fn num_energized(grid: &Grid<Cell>, start: Point, start_dir: Direction) -> usize {
     let (cols, rows) = grid.size();
-    let mut seen = Grid::new(vec![vec![DirectionSet::default(); cols]; rows]);
+    let mut seen = Grid::new(vec![vec![FixedBitField::<1>::default(); cols]; rows]);
     let mut frontier = VecDeque::new();
     frontier.push_back((start, start_dir));
 
     while let Some((p, d)) = frontier.pop_front() {
-        if !seen.get_mut(p).map(|x| x.set(d)).unwrap_or(false) {
+        if !seen.get_mut(p).map(|x| x.set(d as usize)).unwrap_or(false) {
             continue;
         }
 
@@ -55,27 +56,8 @@ fn num_energized(grid: &Grid<Cell>, start: Point, start_dir: Direction) -> usize
     seen.cells
         .iter()
         .flat_map(|x| x.iter())
-        .filter(|x| x.0 > 0)
+        .filter(|x| x.bytes[0] > 0)
         .count()
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-struct DirectionSet(u8);
-
-impl DirectionSet {
-    // Set bit. Return false if already set.
-    fn set(&mut self, d: Direction) -> bool {
-        let bit = match d {
-            Direction::Left => 1,
-            Direction::Right => 2,
-            Direction::Up => 3,
-            Direction::Down => 4,
-        };
-
-        let old = self.0;
-        self.0 |= 1 << bit;
-        old & (1 << bit) == 0
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
