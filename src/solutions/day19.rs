@@ -52,7 +52,7 @@ impl Workflow {
 struct Rule {
     category: Category,
     op: Ordering,
-    value: u16,
+    value: u32,
     target: String,
 }
 
@@ -72,14 +72,14 @@ enum Category {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct Rating {
-    x: u16,
-    m: u16,
-    a: u16,
-    s: u16,
+    x: u32,
+    m: u32,
+    a: u32,
+    s: u32,
 }
 
 impl Rating {
-    fn get(&self, category: Category) -> u16 {
+    fn get(&self, category: Category) -> u32 {
         match category {
             Category::X => self.x,
             Category::M => self.m,
@@ -88,7 +88,7 @@ impl Rating {
         }
     }
 
-    fn set(&mut self, category: Category, value: u16) {
+    fn set(&mut self, category: Category, value: u32) {
         match category {
             Category::X => self.x = value,
             Category::M => self.m = value,
@@ -97,7 +97,7 @@ impl Rating {
         }
     }
 
-    fn sum(&self) -> u16 {
+    fn sum(&self) -> u32 {
         self.x + self.m + self.a + self.s
     }
 }
