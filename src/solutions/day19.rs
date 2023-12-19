@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cmp::Ordering;
 
 use ahash::AHashMap;
@@ -10,12 +11,12 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
         workflows.into_iter().map(|w| (w.name.clone(), w)).collect();
 
     fn filter_rating(workflows: &AHashMap<String, Workflow>, rating: &Rating) -> bool {
-        let mut cur = "in";
-        while cur != "A" && cur != "R" {
-            cur = workflows.get(cur).unwrap().eval(rating)
+        let mut cur = &Target::Workflow("in".into());
+        while let Target::Workflow(id) = cur {
+            cur = workflows.get(id.as_ref()).unwrap().eval(rating)
         }
 
-        cur == "A"
+        cur == &Target::Accept
     }
 
     let ans: usize = ratings
@@ -43,16 +44,16 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
         let mut ret = Vec::new();
         let workflow = workflows.get(cur).unwrap();
         for (i, rule) in workflow.rules.iter().enumerate() {
-            match rule.target.as_str() {
-                "A" => {
+            match &rule.target {
+                Target::Accept => {
                     if let Some(r) = DEFAULT_RATING_RANGE.apply_rules([rule], &workflow.rules[..i])
                     {
                         ret.push(r);
                     }
                 }
-                "R" => (), // skip
-                _ => {
-                    let res = rec(workflows, &rule.target)
+                Target::Reject => (), // skip
+                Target::Workflow(id) => {
+                    let res = rec(workflows, &id)
                         .into_iter()
                         .filter_map(|r| r.apply_rules([rule], &workflow.rules[..i]));
                     ret.extend(res);
@@ -60,15 +61,15 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
             }
         }
 
-        match workflow.default_target.as_str() {
-            "A" => {
+        match &workflow.default_target {
+            Target::Accept => {
                 if let Some(r) = DEFAULT_RATING_RANGE.apply_rules([], &workflow.rules) {
                     ret.push(r)
                 }
             }
-            "R" => (), // skip
-            _ => ret.extend(
-                rec(workflows, &workflow.default_target)
+            Target::Reject => (), // skip
+            Target::Workflow(id) => ret.extend(
+                rec(workflows, &id)
                     .into_iter()
                     .filter_map(|r| r.apply_rules([], &workflow.rules)),
             ),
@@ -87,16 +88,16 @@ pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
 struct Workflow {
     name: String,
     rules: Vec<Rule>,
-    default_target: String,
+    default_target: Target<'static>,
 }
 
 impl Workflow {
-    fn eval(&self, rating: &Rating) -> &str {
+    fn eval(&self, rating: &Rating) -> &Target {
         self.rules
             .iter()
-            .filter_map(|r| (r.eval(&rating)).then_some(r.target.as_str()))
+            .filter_map(|r| (r.eval(&rating)).then_some(&r.target))
             .next()
-            .unwrap_or(self.default_target.as_str())
+            .unwrap_or(&self.default_target)
     }
 }
 
@@ -105,12 +106,29 @@ struct Rule {
     category: Category,
     op: Ordering,
     value: u32,
-    target: String,
+    target: Target<'static>,
 }
 
 impl Rule {
     fn eval(&self, rating: &Rating) -> bool {
         rating.get(self.category).cmp(&self.value) == self.op
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Target<'a> {
+    Accept,
+    Reject,
+    Workflow(Cow<'a, str>),
+}
+
+impl From<String> for Target<'static> {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "A" => Self::Accept,
+            "R" => Self::Reject,
+            _ => Self::Workflow(value.into()),
+        }
     }
 }
 
@@ -284,7 +302,8 @@ mod parser {
             value(Ordering::Greater, char('>')),
             value(Ordering::Less, char('<')),
         ));
-        let rule = tuple((category, op, uint, preceded(char(':'), id))).map(
+        let target = move |input| id.map(|s| Target::from(s)).parse(input);
+        let rule = tuple((category, op, uint, preceded(char(':'), target))).map(
             |(category, op, value, target)| Rule {
                 category,
                 op,
@@ -292,7 +311,7 @@ mod parser {
                 target,
             },
         );
-        let rules = tuple((many1(terminated(rule, char(','))), id));
+        let rules = tuple((many1(terminated(rule, char(','))), target));
         let workflow_body = delimited(char('{'), rules, char('}'));
         let workflow = tuple((id, workflow_body)).map(|(name, (rules, default_rule))| Workflow {
             name,
