@@ -9,6 +9,15 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let workflows: AHashMap<String, Workflow> =
         workflows.into_iter().map(|w| (w.name.clone(), w)).collect();
 
+    fn filter_rating(workflows: &AHashMap<String, Workflow>, rating: &Rating) -> bool {
+        let mut cur = "in";
+        while cur != "A" && cur != "R" {
+            cur = workflows.get(cur).unwrap().eval(rating)
+        }
+
+        cur == "A"
+    }
+
     let ans: usize = ratings
         .iter()
         .filter(|r| filter_rating(&workflows, r))
@@ -18,17 +27,60 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     Ok(ans.to_string())
 }
 
-pub fn problem2(_input: &str) -> Result<String, anyhow::Error> {
-    todo!()
-}
+pub fn problem2(input: &str) -> Result<String, anyhow::Error> {
+    let (workflows, _) = parse!(input);
+    let workflows: AHashMap<String, Workflow> =
+        workflows.into_iter().map(|w| (w.name.clone(), w)).collect();
 
-fn filter_rating(workflows: &AHashMap<String, Workflow>, rating: &Rating) -> bool {
-    let mut cur = "in";
-    while cur != "A" && cur != "R" {
-        cur = workflows.get(cur).unwrap().eval(rating)
+    fn rec(workflows: &AHashMap<String, Workflow>, cur: &str) -> Vec<RatingRange> {
+        const DEFAULT_RATING_RANGE: RatingRange = RatingRange {
+            x: Range::new(1, 4000),
+            m: Range::new(1, 4000),
+            a: Range::new(1, 4000),
+            s: Range::new(1, 4000),
+        };
+
+        let mut ret = Vec::new();
+        let workflow = workflows.get(cur).unwrap();
+        for (i, rule) in workflow.rules.iter().enumerate() {
+            match rule.target.as_str() {
+                "A" => {
+                    if let Some(r) = DEFAULT_RATING_RANGE.apply_rules([rule], &workflow.rules[..i])
+                    {
+                        ret.push(r);
+                    }
+                }
+                "R" => (), // skip
+                _ => {
+                    let res = rec(workflows, &rule.target)
+                        .into_iter()
+                        .filter_map(|r| r.apply_rules([rule], &workflow.rules[..i]));
+                    ret.extend(res);
+                }
+            }
+        }
+
+        match workflow.default_target.as_str() {
+            "A" => {
+                if let Some(r) = DEFAULT_RATING_RANGE.apply_rules([], &workflow.rules) {
+                    ret.push(r)
+                }
+            }
+            "R" => (), // skip
+            _ => ret.extend(
+                rec(workflows, &workflow.default_target)
+                    .into_iter()
+                    .filter_map(|r| r.apply_rules([], &workflow.rules)),
+            ),
+        }
+
+        ret
     }
 
-    cur == "A"
+    let ranges = rec(&workflows, "in");
+    let ans: u64 = ranges.iter().map(|r| r.num_ratings()).sum();
+
+    Ok(ans.to_string())
 }
 
 #[derive(Clone, Debug)]
@@ -59,6 +111,116 @@ struct Rule {
 impl Rule {
     fn eval(&self, rating: &Rating) -> bool {
         rating.get(self.category).cmp(&self.value) == self.op
+    }
+}
+
+// Inclusive range: [start, end]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct Range {
+    start: u32,
+    end: u32,
+}
+
+impl Range {
+    const fn new(start: u32, end: u32) -> Self {
+        Self { start, end }
+    }
+
+    fn len(&self) -> u32 {
+        self.end - self.start + 1
+    }
+
+    fn is_valid(&self) -> bool {
+        self.start <= self.end
+    }
+
+    fn subset_with_start(&self, start: u32) -> Option<Self> {
+        if start <= self.start {
+            return Some(*self);
+        }
+
+        Some(Self {
+            start,
+            end: self.end,
+        })
+        .filter(|x| x.is_valid())
+    }
+    fn subset_with_end(&self, end: u32) -> Option<Self> {
+        if end >= self.end {
+            return Some(*self);
+        }
+
+        Some(Self {
+            start: self.start,
+            end,
+        })
+        .filter(|x| x.is_valid())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct RatingRange {
+    x: Range,
+    m: Range,
+    a: Range,
+    s: Range,
+}
+
+impl RatingRange {
+    fn num_ratings(&self) -> u64 {
+        self.x.len() as u64 * self.m.len() as u64 * self.a.len() as u64 * self.s.len() as u64
+    }
+
+    fn apply_rule(&mut self, rule: &Rule, opposite: bool) -> bool {
+        let range = self.get_mut(rule.category);
+        let (op, offset) = match opposite {
+            true => (rule.op.reverse(), 0),
+            false => (rule.op, 1),
+        };
+        let new_r = match op {
+            Ordering::Greater => range.subset_with_start(rule.value + offset),
+            Ordering::Less => range.subset_with_end(rule.value - offset),
+            _ => panic!("bad op"),
+        };
+
+        let Some(new_r) = new_r else {
+            return false;
+        };
+
+        *range = new_r;
+
+        true
+    }
+
+    fn apply_rules<'a>(
+        &self,
+        rules: impl IntoIterator<Item = &'a Rule>,
+        opposite_rules: impl IntoIterator<Item = &'a Rule>,
+    ) -> Option<Self> {
+        let mut ret = *self;
+
+        for r in rules {
+            if !ret.apply_rule(r, false) {
+                return None;
+            }
+        }
+
+        for r in opposite_rules {
+            if !ret.apply_rule(r, true) {
+                return None;
+            }
+        }
+
+        Some(ret)
+    }
+
+    fn get_mut(&mut self, category: Category) -> &mut Range {
+        match category {
+            Category::X => &mut self.x,
+            Category::M => &mut self.m,
+            Category::A => &mut self.a,
+            Category::S => &mut self.s,
+        }
     }
 }
 
@@ -188,6 +350,6 @@ mod tests {
 
     #[test]
     fn problem2_test() {
-        //assert_eq!(problem2(EXAMPLE_INPUT).unwrap(), "")
+        assert_eq!(problem2(EXAMPLE_INPUT).unwrap(), "167409079868000")
     }
 }
