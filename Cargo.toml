@@ -10,6 +10,7 @@ arrayvec = "0.7"
 clap = { version = "4", features = ["derive"]}
 lazy_static = "1.4"
 nom = "7.1"
+rand = "0.8"
 rayon = "1.8"
 
 [profile.release]
