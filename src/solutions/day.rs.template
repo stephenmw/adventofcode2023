@@ -2,11 +2,11 @@ use crate::solutions::prelude::*;
 
 pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
     let data = parse!(input);
-    todo!()
+    bail!("not yet implemented")
 }
 
 pub fn problem2(_input: &str) -> Result<String, anyhow::Error> {
-    todo!()
+    bail!("not yet implemented")
 }
 
 mod parser {

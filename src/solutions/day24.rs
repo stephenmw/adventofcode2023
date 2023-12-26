@@ -9,7 +9,7 @@ pub fn problem1(input: &str) -> Result<String, anyhow::Error> {
 }
 
 pub fn problem2(_input: &str) -> Result<String, anyhow::Error> {
-    todo!()
+    bail!("not yet implemented")
 }
 
 fn count_overlaps_test_area(vectors: &[Vector3], min_pos: f64, max_pos: f64) -> usize {

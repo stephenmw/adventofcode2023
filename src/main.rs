@@ -6,7 +6,10 @@ mod utils;
 #[macro_use]
 extern crate lazy_static;
 
-use std::time::{Duration, Instant};
+use std::{
+    cmp::Ordering,
+    time::{Duration, Instant},
+};
 
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
@@ -69,33 +72,35 @@ fn run_all(parallel: bool) -> Result<()> {
         d
     };
 
-    let mut times = if parallel {
+    let mut times: Vec<_> = if parallel {
         days.par_iter()
             .copied()
             .flat_map(|day| [(day, 1), (day, 2)])
             .map(|(day, problem)| (day, problem, run_problem(day, problem, None)))
-            .try_fold_with(Vec::new(), |mut acc, (day, problem, res)| {
-                acc.push((day, problem, res?.1));
-                anyhow::Ok(acc)
-            })
-            .try_reduce(Vec::new, |mut a, b| {
-                a.extend(b);
-                Ok(a)
-            })?
+            .collect()
     } else {
         days.iter()
             .copied()
             .flat_map(|day| [(day, 1), (day, 2)])
             .map(|(day, problem)| (day, problem, run_problem(day, problem, None)))
-            .try_fold(Vec::new(), |mut acc, (day, problem, res)| {
-                acc.push((day, problem, res?.1));
-                anyhow::Ok(acc)
-            })?
+            .collect()
     };
 
-    times.sort_by(|a, b| a.2.cmp(&b.2).reverse());
-    for (day, problem, duration) in &times {
-        println!("{:2}-{}: {:?}", day, problem, duration);
+    // Sort by duration in descending order. Errors are sorted at the bottom
+    // by day/part.
+    times.sort_by(|a, b| match (&a.2, &b.2) {
+        (Ok(a_res), Ok(b_res)) => a_res.1.cmp(&b_res.1).reverse(),
+        (Err(_), Err(_)) => a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)),
+        (Ok(_), Err(_)) => Ordering::Less,
+        (Err(_), Ok(_)) => Ordering::Greater,
+    });
+
+    for (day, problem, res) in &times {
+        if let Ok((_, duration)) = res {
+            println!("{:2}-{}: {:?}", day, problem, duration);
+        } else {
+            println!("{:2}-{}: ERROR", day, problem);
+        }
     }
 
     Ok(())
