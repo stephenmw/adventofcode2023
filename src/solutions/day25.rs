@@ -65,31 +65,9 @@ struct Graph {
 }
 
 mod parser {
-    use std::collections::hash_map::Entry;
-
-    use ahash::AHashMap;
-
     use super::*;
     use crate::parser::prelude::*;
-
-    #[derive(Clone, Debug, Default)]
-    struct IdAssigner<'a> {
-        m: AHashMap<&'a str, usize>,
-        pub next_id: usize,
-    }
-
-    impl<'a> IdAssigner<'a> {
-        fn lookup_or_assign(&mut self, value: &'a str) -> usize {
-            match self.m.entry(value) {
-                Entry::Occupied(e) => *e.get(),
-                Entry::Vacant(e) => {
-                    let v = e.insert(self.next_id);
-                    self.next_id += 1;
-                    *v
-                }
-            }
-        }
-    }
+    use crate::utils::IdAssigner;
 
     pub fn parse(input: &str) -> IResult<&str, Graph> {
         let node_id = alpha1;

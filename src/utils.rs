@@ -1,3 +1,7 @@
+mod idassigner;
+
+pub use idassigner::IdAssigner;
+
 #[derive(Debug)]
 pub struct HeapElement<K, V> {
     pub key: K,
